@@ -8,11 +8,6 @@ do_deepspeech_python_build()
 
   package_option=$1
 
-  unset PYTHON_BIN_PATH
-  unset PYTHONPATH
-
-  export PATH="${PYENV_ROOT}/bin:$PATH"
-
   mkdir -p wheels
 
   SETUP_FLAGS=""
@@ -22,38 +17,24 @@ do_deepspeech_python_build()
     SETUP_FLAGS="--project_name STT-tflite"
   fi
 
-  for pyver_conf in ${SUPPORTED_PYTHON_VERSIONS}; do
-    pyver=$(echo "${pyver_conf}" | cut -d':' -f1)
-    pyconf=$(echo "${pyver_conf}" | cut -d':' -f2)
+  maybe_numpy_min_version "$(python -c 'import platform; print(platform.python_version())')"
 
-    pyalias="${pyver}_${pyconf}"
+  python --version
+  pip --version
 
-    maybe_numpy_min_version ${pyver}
+  EXTRA_CFLAGS="${EXTRA_LOCAL_CFLAGS}" \
+  EXTRA_LDFLAGS="${EXTRA_LOCAL_LDFLAGS}" \
+  EXTRA_LIBS="${EXTRA_LOCAL_LIBS}" \
+  make -C native_client/python/ \
+      TARGET=${SYSTEM_TARGET} \
+      RASPBIAN=${SYSTEM_RASPBIAN} \
+      TFDIR=${DS_TFDIR} \
+      SETUP_FLAGS="${SETUP_FLAGS}" \
+      bindings-clean bindings
 
-    virtualenv_activate "${pyalias}" "deepspeech"
+  cp native_client/python/dist/*.whl wheels
 
-    python --version
-    pip --version
-    pip3 --version
-    which pip
-    which pip3
-
-    EXTRA_CFLAGS="${EXTRA_LOCAL_CFLAGS}" \
-    EXTRA_LDFLAGS="${EXTRA_LOCAL_LDFLAGS}" \
-    EXTRA_LIBS="${EXTRA_LOCAL_LIBS}" \
-    make -C native_client/python/ \
-        TARGET=${SYSTEM_TARGET} \
-        RASPBIAN=${SYSTEM_RASPBIAN} \
-        TFDIR=${DS_TFDIR} \
-        SETUP_FLAGS="${SETUP_FLAGS}" \
-        bindings-clean bindings
-
-    cp native_client/python/dist/*.whl wheels
-
-    make -C native_client/python/ bindings-clean
-
-    virtualenv_deactivate "${pyalias}" "deepspeech"
-  done;
+  make -C native_client/python/ bindings-clean
 }
 
 do_deepspeech_decoder_build()
@@ -188,7 +169,7 @@ do_bazel_build()
 
   if [ "${_opt_or_dbg}" = "opt" ]; then
     if is_patched_bazel; then
-      find ${DS_ROOT_TASK}/DeepSpeech/ds/tensorflow/bazel-out/ -iname "*.ckd" | tar -cf ${DS_ROOT_TASK}/DeepSpeech/bazel-ckd-tf.tar -T -
+      find ${DS_ROOT_TASK}/tensorflow/bazel-out/ -iname "*.ckd" | tar -cf ${DS_ROOT_TASK}/bazel-ckd-tf.tar -T -
     fi;
   fi;
 
@@ -197,9 +178,9 @@ do_bazel_build()
 
   if [ "${_opt_or_dbg}" = "opt" ]; then
     if is_patched_bazel; then
-      find ${DS_ROOT_TASK}/DeepSpeech/ds/tensorflow/bazel-out/ -iname "*.ckd" | tar -cf ${DS_ROOT_TASK}/DeepSpeech/bazel-ckd-ds.tar -T -
+      find ${DS_ROOT_TASK}/tensorflow/bazel-out/ -iname "*.ckd" | tar -cf ${DS_ROOT_TASK}/bazel-ckd-ds.tar -T -
     fi;
-    verify_bazel_rebuild "${DS_ROOT_TASK}/DeepSpeech/ds/tensorflow/bazel_monolithic.log"
+    verify_bazel_rebuild "${DS_ROOT_TASK}/tensorflow/bazel_monolithic.log"
   fi;
 }
 

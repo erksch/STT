@@ -1,0 +1,25 @@
+name: "C++ tests"
+description: "Running C++ binary tests"
+inputs:
+  build_flavor:
+    description: "Running against TF or TFLite"
+    required: true
+    default: ""
+  model_kind:
+    description: "Running against CI baked or production model"
+    required: true
+    default: ""
+  bitrate:
+    description: "Bitrate for testing"
+    required: true
+    default: ""
+runs:
+  using: "composite"
+  steps:
+    - run: |
+        build=""
+        if [ "${{ inputs.build_flavor }}" = "tflite" ]; then
+          build="_tflite"
+        fi
+        ./taskcluster/tc-cpp${build}-ds-tests${{ inputs.model_kind }}.sh ${{ inputs.bitrate }}
+      shell: bash

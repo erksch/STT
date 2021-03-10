@@ -1,0 +1,48 @@
+name: "Python binding"
+description: "Binding a python binding"
+inputs:
+  project_name:
+    description: "Python package name"
+    required: true
+    default: "deepspeech"
+  target:
+    description: "Build target"
+    required: true
+    default: "host"
+  local_cflags:
+    description: "CFLAGS for Python package"
+    required: false
+    default: ""
+  local_ldflags:
+    description: "LDFLAGS for Python package"
+    required: false
+    default: ""
+  local_libs:
+    description: "LIBS for Python package"
+    required: false
+    default: ""
+runs:
+  using: "composite"
+  steps:
+    - run: |
+        python --version
+        pip --version
+      shell: bash
+    - run: |
+        mkdir -p wheels
+      shell: bash
+    - run: |
+        EXTRA_CFLAGS=${{ inputs.local_cflags }} \
+        EXTRA_LDFLAGS=${{ inputs.local_ldflags }} \
+        EXTRA_LIBS=${{ inputs.local_libs }} \
+          make -C native_client/python/ \
+            TARGET=${{ inputs.target }} \
+            SETUP_FLAGS="--project_name ${{ inputs.project_name }}" \
+            bindings-clean bindings
+      shell: bash
+    - run: |
+        cp native_client/python/dist/*.whl wheels
+      shell: bash
+    - run: |
+        make -C native_client/python/ bindings-clean
+      shell: bash

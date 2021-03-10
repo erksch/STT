@@ -1,0 +1,10 @@
+{
+  "name": "check_artifact_exists",
+  "main": "main.js",
+  "dependencies": {
+    "@actions/core": "^1.2.6",
+    "@actions/github": "^4.0.0",
+    "adm-zip": "^0.5.2",
+    "filesize": "^6.1.0"
+  }
+}

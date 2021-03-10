@@ -1,0 +1,190 @@
+name: build
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - github-actions-ci ## TODO: remove
+env:
+  TASKCLUSTER_TASK_DIR: ${{ github.workspace }}
+  TASKCLUSTER_ARTIFACTS: ${{ github.workspace }}/artifacts
+jobs:
+  swig_macOS:
+    runs-on: macos-10.15
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          repository: "swig/swig"
+          ref: "3f391478c481da4d1cc840b5647936dfad9b09c2"
+      - run: |
+          brew install automake
+      - run: |
+          mkdir -p build-static/
+      - run: |
+          curl -sSL https://ftp.pcre.org/pub/pcre/pcre-8.43.tar.gz > pcre-8.43.tar.gz
+      - run: |
+          ./Tools/pcre-build.sh
+      - run: |
+          sh autogen.sh
+          ./configure \
+            --prefix=${{ github.workspace }}/build-static/ \
+            --program-prefix=ds-
+      - run: |
+          make -j
+      - run: |
+          make install
+      - uses: actions/upload-artifact@v2
+        with:
+          name: ${{ github.job }}
+          path: ${{ github.workspace }}/build-static/
+  tensorflow_opt-macOS:
+    runs-on: ubuntu-20.04
+    outputs:
+      status: ${{ steps.check_artifact_exists.outputs.status }}
+      cache_key: ${{ steps.get_cache_key.outputs.key }}
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+      - id: get_cache_key
+        uses: ./.github/actions/get_cache_key
+        with:
+          extras: "1"
+      - id: check_artifact_exists
+        uses: ./.github/actions/check_artifact_exists
+        with:
+          name: ${{ steps.get_cache_key.outputs.key }}
+  build-tensorflow-macOS:
+    needs: tensorflow_opt-macOS
+    runs-on: macos-10.15
+    steps:
+      - run: true
+        if: needs.tensorflow_opt-macOS.outputs.status == 'found'
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          submodules: 'recursive'
+        if: needs.tensorflow_opt-macOS.outputs.status == 'missing'
+      - uses: ./.github/actions/select-xcode
+        with:
+          version: "12.1.1"
+        if: needs.tensorflow_opt-macOS.outputs.status == 'missing'
+      - uses: ./.github/actions/setup-tensorflow
+        if: needs.tensorflow_opt-macOS.outputs.status == 'missing'
+      - uses: ./.github/actions/build-tensorflow
+        with:
+          flavor: "--darwin-cpu"
+        if: needs.tensorflow_opt-macOS.outputs.status == 'missing'
+      - uses: ./.github/actions/package-tensorflow
+        if: needs.tensorflow_opt-macOS.outputs.status == 'missing'
+      - uses: actions/upload-artifact@v2
+        with:
+          name: ${{ needs.tensorflow_opt-macOS.outputs.cache_key }}
+          path: ${{ github.workspace }}/artifacts/home.tar.xz
+        if: needs.tensorflow_opt-macOS.outputs.status == 'missing'
+  build-lib_macOS:
+    runs-on: macos-10.15
+    needs: [ build-tensorflow-macOS, tensorflow_opt-macOS ]
+    strategy:
+      matrix:
+        build_flavor: ["tf", "tflite"]
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v2
+        with:
+          name: ${{ needs.tensorflow_opt-macOS.outputs.cache_key }}
+          path: ${{ github.workspace }}/
+        if: needs.tensorflow_opt-macOS.outputs.status == 'missing'
+      - uses: ./.github/actions/check_artifact_exists
+        with:
+          name: ${{ needs.tensorflow_opt-macOS.outputs.cache_key }}
+          path: ${{ github.workspace }}/
+          download: true
+        if: needs.tensorflow_opt-macOS.outputs.status == 'found'
+      - run: |
+          tar xkf ${{ github.workspace }}/home.tar.xz
+          rm ${{ github.workspace }}/home.tar.xz
+      - run: |
+          git status
+      - uses: ./.github/actions/select-xcode
+        with:
+          version: "12.1.1"
+      - uses: ./.github/actions/host-build
+        with:
+          flavor: ${{ matrix.build_flavor }}
+      - uses: ./.github/actions/package
+      - uses: actions/upload-artifact@v2
+        with:
+          name: "native_client.${{ matrix.build_flavor }}.tar.xz"
+          path: ${{ github.workspace }}/artifacts/native_client.tar.xz
+      - uses: actions/upload-artifact@v2
+        with:
+          name: "libdeepspeech.${{ matrix.build_flavor }}.zip"
+          path: ${{ github.workspace }}/artifacts/libdeepspeech.zip
+  build-python-macOS:
+    runs-on: macos-10.15
+    needs: [ build-lib_macOS, swig_macOS ]
+    strategy:
+      matrix:
+        build_flavor: ["tf", "tflite"]
+        python-version: [3.5, 3.6, 3.7, 3.8, 3.9]
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+      - uses: actions/download-artifact@v2
+        with:
+          name: "native_client.${{ matrix.build_flavor }}.tar.xz"
+          path: ${{ github.workspace }}/tensorflow/bazel-bin/native_client/
+      - run: |
+          cd ${{ github.workspace }}/tensorflow/bazel-bin/native_client/
+          tar xf native_client.tar.xz
+          ls -hal
+          cd ${{ github.workspace }}/
+      - uses: actions/download-artifact@v2
+        with:
+          name: "swig_macOS"
+          path: ${{ github.workspace }}/native_client/ds-swig/
+      - run: |
+          ls -hal ${{ github.workspace }}/native_client/ds-swig/bin
+      - uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: ./.github/actions/python-build
+        with:
+          project_name: deepspeech-${{ matrix.build_flavor }}
+      - uses: actions/upload-artifact@v2
+        with:
+          name: "deepspeech-${{ matrix.build_flavor }}-${{ matrix.python-version }}.whl"
+          path: ${{ github.workspace }}/wheels/*.whl
+  test-cpp-macOS:
+    runs-on: macos-10.15
+    needs: build-lib_macOS
+    strategy:
+      matrix:
+        build_flavor: ["tf", "tflite"]
+        models: ["-prod"]
+        bitrate: ["8k", "16k"]
+    env:
+      TASKCLUSTER_TMP_DIR: ${{ github.workspace }}/tmp/
+      DEEPSPEECH_PROD_MODEL: https://github.com/reuben/DeepSpeech/releases/download/v0.7.0-alpha.3/output_graph.pb
+      DEEPSPEECH_PROD_MODEL_MMAP: https://github.com/reuben/DeepSpeech/releases/download/v0.7.0-alpha.3/output_graph.pbmm
+      EXPECTED_TENSORFLOW_VERSION: "TensorFlow: v2.3.0-6-g23ad988"
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+      - uses: actions/download-artifact@v2
+        with:
+          name: "native_client.${{ matrix.build_flavor }}.tar.xz"
+          path: ${{ env.TASKCLUSTER_TMP_DIR }}
+      - run: |
+          cd ${{ env.TASKCLUSTER_TMP_DIR }}
+          mkdir ds && cd ds && tar xf ../native_client.tar.xz
+      - uses: ./.github/actions/cpp-tests
+        with:
+          build_flavor: ${{ matrix.build_flavor }}
+          bitrate: ${{ matrix.bitrate }}
+          model_kind: ${{ matrix.models }}

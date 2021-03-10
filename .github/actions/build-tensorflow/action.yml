@@ -1,0 +1,12 @@
+name: "Build TensorFlow"
+description: "Build TensorFlow Build"
+inputs:
+  flavor:
+    description: "Build flavor"
+    required: true
+    default: "--dont-build-anything"
+runs:
+  using: "composite"
+  steps:
+    - run: ./taskcluster/tf_tc-build.sh ${{ inputs.flavor }}
+      shell: bash
