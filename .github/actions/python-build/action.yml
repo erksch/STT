@@ -1,13 +1,12 @@
 name: "Python binding"
 description: "Binding a python binding"
 inputs:
-  project_name:
-    description: "Python package name"
+  build-flavor:
+    description: "Build flavor, tf or tflite"
     required: true
-    default: "deepspeech"
   target:
     description: "Build target"
-    required: true
+    required: false
     default: "host"
   local_cflags:
     description: "CFLAGS for Python package"
@@ -37,9 +36,11 @@ runs:
         EXTRA_LIBS=${{ inputs.local_libs }} \
           make -C native_client/python/ \
             TARGET=${{ inputs.target }} \
-            SETUP_FLAGS="--project_name ${{ inputs.project_name }}" \
+            SETUP_FLAGS="--project_name $CLEANED_PROJ_NAME" \
             bindings-clean bindings
       shell: bash
+      env:
+        CLEANED_PROJ_NAME: "${{ inputs.build-flavor == 'tf' && 'STT' || 'STT-tflite' }}"
     - run: |
         cp native_client/python/dist/*.whl wheels
       shell: bash

@@ -154,7 +154,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - uses: ./.github/actions/python-build
         with:
-          project_name: STT-${{ matrix.build_flavor }}
+          build-flavor: ${{ matrix.build_flavor }}
       - uses: actions/upload-artifact@v2
         with:
           name: "STT-${{ matrix.build_flavor }}-${{ matrix.python-version }}.whl"
