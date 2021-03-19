@@ -121,8 +121,8 @@ jobs:
           path: ${{ github.workspace }}/artifacts/native_client.tar.xz
       - uses: actions/upload-artifact@v2
         with:
-          name: "libdeepspeech.${{ matrix.build_flavor }}.zip"
-          path: ${{ github.workspace }}/artifacts/libdeepspeech.zip
+          name: "libstt.${{ matrix.build_flavor }}.zip"
+          path: ${{ github.workspace }}/artifacts/libstt.zip
   build-python-macOS:
     runs-on: macos-10.15
     needs: [ build-lib_macOS, swig_macOS ]
@@ -154,10 +154,10 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - uses: ./.github/actions/python-build
         with:
-          project_name: deepspeech-${{ matrix.build_flavor }}
+          project_name: STT-${{ matrix.build_flavor }}
       - uses: actions/upload-artifact@v2
         with:
-          name: "deepspeech-${{ matrix.build_flavor }}-${{ matrix.python-version }}.whl"
+          name: "STT-${{ matrix.build_flavor }}-${{ matrix.python-version }}.whl"
           path: ${{ github.workspace }}/wheels/*.whl
   test-cpp-macOS:
     runs-on: macos-10.15

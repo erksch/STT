@@ -200,7 +200,7 @@ do_deepspeech_binary_build()
     EXTRA_CFLAGS="${EXTRA_LOCAL_CFLAGS}" \
     EXTRA_LDFLAGS="${EXTRA_LOCAL_LDFLAGS}" \
     EXTRA_LIBS="${EXTRA_LOCAL_LIBS}" \
-    deepspeech${PLATFORM_EXE_SUFFIX}
+    stt${PLATFORM_EXE_SUFFIX}
 }
 
 do_deepspeech_ndk_build()
@@ -321,7 +321,7 @@ do_nuget_build()
 do_deepspeech_ios_framework_build()
 {
   arch=$1
-  unzip ${DS_TFDIR}/bazel-bin/native_client/deepspeech_ios.zip -d ${DS_DSDIR}/native_client/swift
+  unzip ${DS_TFDIR}/bazel-bin/native_client/coqui_stt_ios.zip -d ${DS_DSDIR}/native_client/swift
   cd ${DS_DSDIR}/native_client/swift
   case $arch in
   "--x86_64")
@@ -333,5 +333,5 @@ do_deepspeech_ios_framework_build()
     xcodeArch="arm64"
     ;;
   esac
-  xcodebuild -workspace deepspeech_ios.xcworkspace -scheme deepspeech_ios_test -configuration Release -arch "${xcodeArch}" -sdk "${iosSDK}" -derivedDataPath DerivedData CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+  xcodebuild -workspace stt_ios.xcworkspace -scheme stt_ios_test -configuration Release -arch "${xcodeArch}" -sdk "${iosSDK}" -derivedDataPath DerivedData CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
 }
