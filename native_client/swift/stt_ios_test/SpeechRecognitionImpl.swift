@@ -23,12 +23,18 @@ class SpeechRecognitionImpl {
     private var audioInput: AudioInput? = nil
     private var bufferQueue: [[Int16]] = [[Int16]]()
 
-    init() {
+private let onPartialResult: (String) -> Void
+    private let onResult: (String) -> Void
+
+    init(onPartialResult:@escaping (String) -> Void, onResult:@escaping (String) -> Void) {
         let modelPath = Bundle.main.path(forResource: "model", ofType: "tflite")!
         let scorerPath = Bundle.main.path(forResource: "huge-vocab", ofType: "scorer")!
 
         model = try! STTModel(modelPath: modelPath)
         try! model.enableExternalScorer(scorerPath: scorerPath)
+
+        self.onPartialResult = onPartialResult
+        self.onResult = onResult
     }
 
     public func startMicrophoneRecognition() {
@@ -47,12 +53,14 @@ class SpeechRecognitionImpl {
             repeats: true
         ) { _ in
             if (!self.bufferQueue.isEmpty) {
+                print(self.bufferQueue.count)
+
                 let shorts = self.bufferQueue.removeFirst()
                 self.stream!.feedAudioContent(buffer: shorts)
 
                 // (optional) get partial result
                 let partialResult = self.stream!.intermediateDecode()
-                print(partialResult)
+                self.onPartialResult(partialResult)
 
                 // (optional) collect audio data for writing to file
                 shorts.withUnsafeBufferPointer { buffPtr in
@@ -70,7 +78,7 @@ class SpeechRecognitionImpl {
         bufferQueue.removeAll()
 
         let result = stream?.finishStream() ?? ""
-        print("Result: " + result)
+        onResult(result)
 
         // (optional) useful for checking the recorded audio
         writeAudioDataToPCMFile()

@@ -6,7 +6,7 @@ class AudioInput {
     private let onData: (_ shorts: [Int16]) -> Void
 
     private let bus: Int = 0
-    private let processingInterval = 0.2
+    private let processingInterval = 2.0
 
     private var audioData: Data = Data()
 
